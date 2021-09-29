@@ -130,13 +130,12 @@ class FocusTty:
 
 TIOCEXCL = 0x540C
 
-
 T = TypeVar('T')
 
 
 class Cell(Generic[T]):
     def __init__(self, value: T):
-        self._value = T
+        self._value = value
 
     def get(self) -> T:
         return self._value
