@@ -88,7 +88,7 @@ class FocusTty:
     _tty: Optional[io.FileIO]
 
     def __init__(self, path):
-        self._debug = True
+        self._debug = False
         self._path = path
         self._tty = None
 
