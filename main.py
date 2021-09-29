@@ -1,3 +1,4 @@
+import fcntl
 import io
 import os
 import time
@@ -100,7 +101,12 @@ class FocusTty:
         self.close()
 
     def open(self):
-        self._tty = io.FileIO(os.open(self._path, os.O_RDWR | os.O_NOCTTY), "r+b")
+        fd = os.open(self._path, os.O_RDWR | os.O_NOCTTY)
+        try:
+            fcntl.ioctl(fd, TIOCEXCL)
+            self._tty = io.FileIO(fd, "r+b")
+        except:  # noqa
+            os.close(fd)
 
     def close(self):
         self._tty.close()
@@ -120,6 +126,9 @@ class FocusTty:
 
     def read(self):
         return self._tty.read()
+
+
+TIOCEXCL = 0x540C
 
 
 T = TypeVar('T')
