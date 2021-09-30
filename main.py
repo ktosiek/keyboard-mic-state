@@ -1,5 +1,6 @@
 import fcntl
 import io
+import logging
 import os
 import select
 import time
@@ -8,8 +9,12 @@ from typing import Tuple, Optional, Generic, TypeVar
 
 import pulsectl
 
+logger = logging.getLogger('main')
+
 MIC_MUTE_KEY = 3  # prog
 MIC_ACTIVE_LED_MODE = 0  # domyślny, pusty tryb
+
+DEBUG = os.environ.get('MIC_STATE_DEBUG', '').lower() in ('1', 't', 'true')
 
 
 def main():
@@ -21,6 +26,7 @@ def main():
             focus.reset()
             main_loop(focus, prev_mode, pulse)
         finally:
+            logger.info('exit')
             restore(focus, prev_mode.get())
 
 
@@ -29,13 +35,13 @@ def main_loop(focus, prev_mode, pulse):
     while True:
         sink_open = any(m for m in pulse.source_list() if m.state == pulsectl.PulseStateEnum.running and not m.mute)
         if sink_open and not prev_sink_open:
-            print('sink opened')
+            logger.info('sink opened')
             prev_mode.set(focus.get_led_mode())
             focus.set_led_mode(MIC_ACTIVE_LED_MODE)
             focus.set_led_at(MIC_MUTE_KEY, (250, 0, 0))
 
         if not sink_open and prev_sink_open:
-            print('sink closed')
+            logger.info('sink closed')
             restore(focus, prev_mode.get())
             prev_mode.set(None)
 
@@ -87,7 +93,6 @@ class FocusTty:
     _tty: Optional[io.FileIO]
 
     def __init__(self, path):
-        self._debug = False
         self._path = path
         self._tty = None
 
@@ -112,16 +117,14 @@ class FocusTty:
 
     def writeline(self, line: bytes) -> None:
         line = line + b'\n'
-        if self._debug:
-            print('write', line)
+        logger.debug('write: %r', line)
         self._tty.write(line)
         self._tty.flush()
 
     def readline(self, timeout: timedelta = None) -> bytes:
         raw_line = self._tty.readline()
         if not raw_line:
-            if self._debug:
-                print('waiting for data')
+            logger.debug('waiting for data')
             select.select([self._tty], [], [], timeout.total_seconds())
             raw_line = self._tty.readline()
 
@@ -129,8 +132,7 @@ class FocusTty:
             raise EmptyReadException()
 
         line = raw_line.removesuffix(b'\r\n')
-        if self._debug:
-            print('read', line)
+        logger.debug('read: %r', line)
         return line
 
     def read(self):
@@ -159,6 +161,10 @@ class EmptyReadException(Exception):
 
 if __name__ == '__main__':
     try:
+        logging.basicConfig(
+            format='%(asctime)-15s %(levelname)s %(message)s',
+            level=logging.DEBUG if DEBUG else logging.INFO,
+        )
         main()
     except KeyboardInterrupt:
         pass
