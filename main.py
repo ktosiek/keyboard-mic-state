@@ -1,6 +1,7 @@
 import fcntl
 import io
 import os
+import select
 import time
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, Generic, TypeVar
@@ -73,15 +74,13 @@ class FocusClient:
 
     def _read_result(self):
         deadline = datetime.now() + timedelta(seconds=5)
-        while datetime.now() < deadline:
-            line = self._tty.readline()
-            if not line:
-                time.sleep(0.1)
-            elif line == b'.':
+        while True:
+            time_left = deadline - datetime.now()
+            line = self._tty.readline(timeout=time_left)
+            if line == b'.':
                 return
-            else:
+            elif line:
                 yield line
-        raise ProtocolError("""Timed out while waiting for ".".""")
 
 
 class FocusTty:
@@ -118,8 +117,18 @@ class FocusTty:
         self._tty.write(line + b'\n')
         self._tty.flush()
 
-    def readline(self) -> bytes:
-        line = self._tty.readline().removesuffix(b'\r\n')
+    def readline(self, timeout: timedelta = None) -> bytes:
+        raw_line = self._tty.readline()
+        if not raw_line:
+            if self._debug:
+                print('waiting for data')
+            select.select([self._tty], [], [], timeout.total_seconds())
+            raw_line = self._tty.readline()
+
+        if not raw_line:
+            raise EmptyReadException()
+
+        line = raw_line.removesuffix(b'\r\n')
         if self._debug:
             print('read', line)
         return line
@@ -144,7 +153,7 @@ class Cell(Generic[T]):
         self._value = value
 
 
-class ProtocolError(Exception):
+class EmptyReadException(Exception):
     pass
 
 
