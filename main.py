@@ -114,7 +114,7 @@ class FocusTty:
         line = line + b'\n'
         if self._debug:
             print('write', line)
-        self._tty.write(line + b'\n')
+        self._tty.write(line)
         self._tty.flush()
 
     def readline(self, timeout: timedelta = None) -> bytes:
