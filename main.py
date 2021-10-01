@@ -8,7 +8,7 @@ import time
 from typing import Tuple, Optional, Generic, TypeVar, List, Generator, AsyncGenerator, Iterable
 
 import pulsectl_asyncio
-from pulsectl import PulseSourceInfo, PulseStateEnum
+from pulsectl import PulseSourceInfo, PulseStateEnum, PulseEventMaskEnum
 
 logger = logging.getLogger('main')
 
@@ -20,12 +20,15 @@ DEBUG = os.environ.get('MIC_STATE_DEBUG', '').lower() in ('1', 't', 'true')
 CLIENT_NAME = "keyboard-mic-state"
 
 
-async def generate_pulse_sources():
-    while True:
-        async with pulsectl_asyncio.PulseAsync(CLIENT_NAME) as pulse:
-            source_list: List[PulseSourceInfo] = await pulse.source_list()
-        yield source_list
-        await asyncio.sleep(0.1)
+async def generate_pulse_sources() -> AsyncGenerator[List[PulseSourceInfo], None]:
+    async with pulsectl_asyncio.PulseAsync(CLIENT_NAME) as pulse:
+        yield await pulse.source_list()
+        async for event in pulse.subscribe_events(
+                PulseEventMaskEnum.source_output,
+                PulseEventMaskEnum.source,
+        ):
+            logger.debug("got PA event: %r", event)
+            yield await pulse.source_list()
 
 
 async def main():
