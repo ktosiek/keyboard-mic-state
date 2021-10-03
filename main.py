@@ -137,13 +137,19 @@ class FocusTty:
     def writeline(self, line: bytes) -> None:
         line = line + b'\n'
         logger.debug('write: %r', line)
-        assert self._tty.write(line) == len(line)
+        self.write_all(line)
         self._tty.flush()
 
     def readlines(self) -> Generator[bytes, None, None]:
         chunks = readchunks(self._tty)
         for line in splitter(chunks, b'\n'):
             yield line.removesuffix(b'\r')
+
+    def write_all(self, buff: bytes):
+        while (written := self._tty.write(buff)) != len(buff):
+            buff = buff[written:]
+            logger.debug("partial write, %s bytes left", len(buff))
+            select.select([], [self._tty.fileno()], [])
 
     def discard_pending_data(self):
         data = self._tty.read()
