@@ -152,9 +152,9 @@ class FocusTty:
             select.select([], [self._tty.fileno()], [])
 
     def discard_pending_data(self):
-        data = self._tty.read()
-        if data:
+        while data := self._tty.read():
             logger.warning('unexpected data when starting: %r', data)
+            select.select([self._tty.fileno()], [], [], 0.1)
 
 
 def readchunks(f: io.FileIO) -> Generator[bytes, None, None]:
