@@ -8,6 +8,7 @@ import time
 from typing import Tuple, Optional, Generic, TypeVar, List, Generator, AsyncGenerator, Iterable
 
 import pulsectl_asyncio
+import serial.tools.list_ports
 from pulsectl import PulseSourceInfo, PulseStateEnum, PulseEventMaskEnum
 
 logger = logging.getLogger('main')
@@ -31,8 +32,15 @@ async def generate_pulse_sources() -> AsyncGenerator[List[PulseSourceInfo], None
             yield await pulse.source_list()
 
 
+MODEL_01_USB_VID_PID = (0x1209, 0x2301)
+
+
+def get_keyboard_path():
+    return next(d.device for d in serial.tools.list_ports.comports() if (d.vid, d.pid) == MODEL_01_USB_VID_PID)
+
+
 async def main():
-    with FocusTty('/dev/ttyACM0') as tty:
+    with FocusTty(get_keyboard_path()) as tty:
         focus = FocusClient(tty)
         pulse_sources_stream = generate_pulse_sources()
         prev_mode: Cell[Optional[int]] = Cell(None)

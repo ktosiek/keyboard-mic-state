@@ -9,6 +9,7 @@ main = "python ./main.py"
 [packages]
 dbus-python = "*"
 pulsectl-asyncio = "*"
+pyserial = "*"
 
 [dev-packages]
 
